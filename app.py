@@ -17,30 +17,38 @@ try:
 except Exception as e:
     st.error(f"⚠️ 載入模型失敗：{e}")
 
-# 2. 定義針對不同物品的詳細說明字典（可根據你們 YOLO 訓練的類別名稱自行增減修改）
-advice_database = {
-    "塑膠袋": {
-        "name": "塑膠袋（粉白條紋背心袋／購物袋）",
-        "category": "- **乾淨且乾燥**：資源回收 - 塑膠袋類\n   - **沾有油污／液體／血水**：一般垃圾",
-        "tips": "- **重複利用（最推薦）**：建議留著作為二次購物袋或家中的垃圾袋使用，延長其壽命。\n   - **回收處理（若乾淨）**：必須確保袋內無雜物、無油漬且保持乾燥，可將其鋪平或打結打包後，交給資源回收車。\n   - **丟棄處理（若髒污）**：若塑膠袋曾裝過食物、沾有油污或無法徹底沖洗乾淨，請直接當作「一般垃圾」丟棄，以免污染其他回收物。"
-    },
-    "寶特瓶": {
-        "name": "寶特瓶（PET 塑膠容器）",
-        "category": "- **乾淨並去除瓶蓋與標籤**：資源回收 - 塑膠容器類\n   - **沾染化學液體或無法清洗**：一般垃圾",
-        "tips": "- **回收前準備**：請先將瓶內殘留液體倒乾、簡單沖洗，並將塑膠膜/標籤撕除。\n   - **體積壓縮**：建議將寶特瓶壓扁，以減少回收桶的佔用空間。\n   - **交付回收**：投入指定塑膠類資源回收桶或交由清潔隊回收車。"
-    },
-    "紙箱": {
-        "name": "紙箱／紙類包裝",
-        "category": "- **乾淨無油漬**：資源回收 - 紙容器／紙類\n   - **沾有油漬（如披薩盒）**：一般垃圾",
-        "tips": "- **拆解壓平**：請將紙箱膠帶撕除並將其摺疊壓平，以利回收與運送。\n   - **保持乾燥**：紙類受潮或沾染油污後無法回收，若有油漬請作為一般垃圾處理。"
-    }
-}
-
-# 預設的通用說明（當 YOLO 辨識出字典裡沒有的其他類別時使用）
-default_advice = {
-    "category": "- 請根據當地環保局規範進行分類",
-    "tips": "- **重複利用**：若物品完整乾淨，建議延長其使用壽命。\n   - **妥善處理**：請依材質（如紙類、塑膠、金屬）投入對應的回收桶，若無法判定或嚴重髒污則作為一般垃圾處理。"
-}
+# 2. 建立一個智慧動態說明生成函數（根據 YOLO 辨識出的類別名稱自動延伸）
+def generate_dynamic_advice(class_name):
+    lower_name = class_name.lower()
+    
+    # 針對金屬類 (Metal) 的動態排版
+    if "metal" in lower_name or "金屬" in class_name or "鐵" in class_name or "鋁" in class_name:
+        return {
+            "name": f"金屬類物品 ({class_name})",
+            "category": "- **乾淨無嚴重鏽蝕**：資源回收 - 金屬類／鐵鋁罐\n   - **沾有有害化學物質或醫療針具**：特殊有害垃圾",
+            "tips": "- **清洗與壓扁**：建議先將內容物倒乾、簡單沖洗，若是鐵鋁罐可稍微踩扁以減少體積。\n   - **回收處理**：金屬材質可無限次循環利用，請直接投入金屬資源回收桶。\n   - **安全注意事項**：若有尖銳邊緣，請妥善包覆後再丟棄，避免割傷清潔人員。"
+        }
+    # 針對塑膠類 (Plastic) 的動態排版
+    elif "plastic" in lower_name or "塑膠" in class_name or "bottle" in lower_name or "瓶" in class_name:
+        return {
+            "name": f"塑膠類容器／物品 ({class_name})",
+            "category": "- **乾淨且乾燥**：資源回收 - 塑膠類\n   - **嚴重油污或複合材質**：一般垃圾",
+            "tips": "- **清洗準備**：請先將內部殘留物清除並沖洗乾淨。\n   - **去除配件**：建議將瓶蓋與塑膠標籤撕除（部分回收廠分開處理效率更好）。\n   - **回收交付**：投入塑膠資源回收桶或交由清潔隊回收車。"
+        }
+    # 針對紙類 (Paper) 的動態排版
+    elif "paper" in lower_name or "紙" in class_name or "box" in lower_name or "箱" in class_name:
+        return {
+            "name": f"紙類／紙箱包裝 ({class_name})",
+            "category": "- **乾淨無油漬**：資源回收 - 紙類／紙容器\n   - **沾染油漬或受潮嚴重**：一般垃圾",
+            "tips": "- **拆解壓平**：請將紙箱膠帶撕除，並將其摺疊壓平以節省空間。\n   - **保持乾燥**：紙類若沾有油污（如披薩盒的油漬）將無法回收，請改投入一般垃圾。"
+        }
+    # 針對其他所有未定義類別的通用智慧排版
+    else:
+        return {
+            "name": f"{class_name}",
+            "category": f"- **材質判定**：經模型辨識為 `{class_name}`\n   - **一般判定標準**：乾淨可回收，髒污或複合材質請改列一般垃圾",
+            "tips": f"- **重複利用**：若該 `{class_name}` 物品仍完整乾淨，建議優先考慮二次使用或延長其壽命。\n   - **妥善處理**：請依當地環保局分類規範，將其投入對應的資源回收桶；若無法判定材質或受損嚴重，則作為一般垃圾處理。"
+        }
 
 # 3. 圖片上傳與辨識
 uploaded_file = st.file_uploader("請上傳垃圾照片...", type=["jpg", "jpeg", "png"])
@@ -50,7 +58,7 @@ if uploaded_file is not None:
     st.image(image, caption="上傳的照片", use_container_width=True)
     
     if st.button("🔍 開始 AI 辨識"):
-        with st.spinner("模型辨識中..."):
+        with st.spinner("模型辨識與動態分析中..."):
             results = model(image)
             
             # 取得最高信心度的類別與數值
@@ -58,12 +66,8 @@ if uploaded_file is not None:
             class_name = results[0].names[top1_id]
             confidence = float(results[0].probs.top1conf) * 100
             
-            # 取得對應的詳細說明（若找不到對應名稱則使用預設值）
-            item_info = advice_database.get(class_name, {
-                "name": class_name,
-                "category": f"- **模型判定類別**：{class_name}\n   - 請依實際材質判定為資源回收或一般垃圾",
-                "tips": default_advice["tips"]
-            })
+            # 取得動態生成的詳細說明
+            item_info = generate_dynamic_advice(class_name)
             
             # 呈現符合你要求的專刊排版
             st.success("分析完成！")
